@@ -1,4 +1,4 @@
--- // Ninja Aimbot 1.0 - Fixed ESP Distance Scaling
+-- // Ninja Aimbot 1.0 - Release Ready (Delta Optimized & ESP Fixed)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+-- Limpeza de instâncias anteriores
 if CoreGui:FindFirstChild("NinjaAimbotGUI") then
     CoreGui.NinjaAimbotGUI:Destroy()
 end
@@ -20,6 +21,7 @@ local Config = {
     ESPHealth = false
 }
 
+-- Círculo de FOV
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Transparency = 0.7
@@ -42,6 +44,7 @@ end
 
 Players.PlayerRemoving:Connect(removeESP)
 
+-- Controlo de toque para Anti-Kick
 local isMovingCamera = false
 UserInputService.TouchStarted:Connect(function()
     isMovingCamera = true
@@ -90,6 +93,7 @@ local function getClosestTarget(maxDist, maxAngle)
     return selected
 end
 
+-- Loop principal
 RunService.RenderStepped:Connect(function()
     if Config.ShowFOV then
         FOVCircle.Visible = true
@@ -115,7 +119,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- // ESP CORRIGIDO (Alinhamento em qualquer distância)
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local character = player.Character
@@ -151,46 +154,53 @@ RunService.RenderStepped:Connect(function()
                 end
                 
                 local cache = espCache[player]
-                local headWorldPos = head.Position + Vector3.new(0, 0.7, 0)
-                local legWorldPos = rootPart.Position - Vector3.new(0, 3.2, 0)
+                local rootVector, rootOnScreen = Camera:WorldToViewportPoint(rootPart.Position)
                 
-                local headScreenPos, headOnScreen = Camera:WorldToViewportPoint(headWorldPos)
-                local legScreenPos, legOnScreen = Camera:WorldToViewportPoint(legWorldPos)
-                
-                if headOnScreen and legOnScreen then
-                    local height = math.clamp(math.abs(headScreenPos.Y - legScreenPos.Y), 10, 1000)
-                    local width = height / 1.8
-                    local boxPos = Vector2.new(headScreenPos.X - (width / 2), headScreenPos.Y)
-                    local boxSize = Vector2.new(width, height)
+                -- Validação estricta de profundidade (Z > 0) para evitar que o ESP fique preso no canto superior
+                if rootOnScreen and rootVector.Z > 0 then
+                    local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos, legOnScreen = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 2.5, 0))
                     
-                    if Config.ESPBox then
-                        cache.Box.Visible = true
-                        cache.Box.Size = boxSize
-                        cache.Box.Position = boxPos
+                    if headOnScreen and legOnScreen then
+                        local height = math.abs(headPos.Y - legPos.Y)
+                        local width = height / 2
+                        local boxPos = Vector2.new(rootVector.X - width / 2, headPos.Y)
+                        local boxSize = Vector2.new(width, height)
+                        
+                        if Config.ESPBox then
+                            cache.Box.Visible = true
+                            cache.Box.Size = boxSize
+                            cache.Box.Position = boxPos
+                        else
+                            cache.Box.Visible = false
+                        end
+                        
+                        if Config.ESPName then
+                            cache.NameText.Visible = true
+                            cache.NameText.Text = player.Name
+                            cache.NameText.Position = Vector2.new(boxPos.X + (width / 2), boxPos.Y - 16)
+                        else
+                            cache.NameText.Visible = false
+                        end
+                        
+                        if Config.ESPHealth and humanoid.MaxHealth > 0 then
+                            local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                            local barHeight = height * healthPercent
+                            
+                            cache.HealthBack.Visible = true
+                            cache.HealthBack.Size = Vector2.new(3, height)
+                            cache.HealthBack.Position = Vector2.new(boxPos.X - 6, boxPos.Y)
+                            
+                            cache.HealthBar.Visible = true
+                            cache.HealthBar.Size = Vector2.new(2, barHeight)
+                            cache.HealthBar.Position = Vector2.new(boxPos.X - 5.5, boxPos.Y + (height - barHeight))
+                        else
+                            cache.HealthBack.Visible = false
+                            cache.HealthBar.Visible = false
+                        end
                     else
                         cache.Box.Visible = false
-                    end
-                    
-                    if Config.ESPName then
-                        cache.NameText.Visible = true
-                        cache.NameText.Text = player.Name
-                        cache.NameText.Position = Vector2.new(headScreenPos.X, headScreenPos.Y - 14)
-                    else
                         cache.NameText.Visible = false
-                    end
-                    
-                    if Config.ESPHealth and humanoid.MaxHealth > 0 then
-                        local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-                        local barHeight = height * healthPercent
-                        
-                        cache.HealthBack.Visible = true
-                        cache.HealthBack.Size = Vector2.new(3, height)
-                        cache.HealthBack.Position = Vector2.new(boxPos.X - 6, boxPos.Y)
-                        
-                        cache.HealthBar.Visible = true
-                        cache.HealthBar.Size = Vector2.new(2, barHeight)
-                        cache.HealthBar.Position = Vector2.new(boxPos.X - 5.5, boxPos.Y + (height - barHeight))
-                    else
                         cache.HealthBack.Visible = false
                         cache.HealthBar.Visible = false
                     end
@@ -396,6 +406,7 @@ CreateToggle("Aimbot", "Aimbot", 24)
 CreateToggle("AimbotLegit", "Aimbot Legit", 54)
 CreateToggle("ShowFOV", "Show FOV", 84)
 
+-- Regulador de FOV
 local FovBox = Instance.new("Frame")
 FovBox.Parent = Container
 FovBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
@@ -492,4 +503,4 @@ CreateToggle("ESPName", "ESP Name", 184)
 CreateToggle("ESPBox", "ESP Box", 214)
 CreateToggle("ESPHealth", "ESP Health", 244)
 
-print("Ninja Aimbot ESP Fixed!")
+print("Ninja Aimbot 1.0 - Ready to Launch!")
