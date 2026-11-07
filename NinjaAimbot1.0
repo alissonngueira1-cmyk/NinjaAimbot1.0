@@ -1,4 +1,4 @@
--- // Ninja Aimbot 1.0 - Release Ready (Delta Optimized)
+-- // Ninja Aimbot 1.0 - Fixed ESP Distance Scaling
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -6,7 +6,6 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Limpeza de instâncias anteriores para evitar duplicação de UI ou conexões fantasmas
 if CoreGui:FindFirstChild("NinjaAimbotGUI") then
     CoreGui.NinjaAimbotGUI:Destroy()
 end
@@ -21,7 +20,6 @@ local Config = {
     ESPHealth = false
 }
 
--- Inicialização segura do Círculo de FOV
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Transparency = 0.7
@@ -44,7 +42,6 @@ end
 
 Players.PlayerRemoving:Connect(removeESP)
 
--- Controlo de toque para desativar o Legit ao mover a câmara (Anti-Kick)
 local isMovingCamera = false
 UserInputService.TouchStarted:Connect(function()
     isMovingCamera = true
@@ -55,7 +52,6 @@ UserInputService.TouchEnded:Connect(function()
     end)
 end)
 
--- Sistema de alvo otimizado com raycast anti-parede e filtro de distância
 local function getClosestTarget(maxDist, maxAngle)
     local selected = nil
     local smallestAngle = maxAngle
@@ -94,7 +90,6 @@ local function getClosestTarget(maxDist, maxAngle)
     return selected
 end
 
--- Loop principal executado por frame de forma segura
 RunService.RenderStepped:Connect(function()
     if Config.ShowFOV then
         FOVCircle.Visible = true
@@ -120,10 +115,11 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- // ESP CORRIGIDO (Alinhamento em qualquer distância)
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local character = player.Character
-            local humanoid = character and character:FindFirstChild("Humanoid")
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             local rootPart = character and character:FindFirstChild("HumanoidRootPart")
             local head = character and character:FindFirstChild("Head")
 
@@ -155,15 +151,16 @@ RunService.RenderStepped:Connect(function()
                 end
                 
                 local cache = espCache[player]
-                local rootPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                local headWorldPos = head.Position + Vector3.new(0, 0.7, 0)
+                local legWorldPos = rootPart.Position - Vector3.new(0, 3.2, 0)
                 
-                if onScreen then
-                    local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                    local legPos = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 3, 0))
-                    
-                    local height = math.abs(headPos.Y - legPos.Y)
-                    local width = height / 2
-                    local boxPos = Vector2.new(rootPos.X - width / 2, headPos.Y)
+                local headScreenPos, headOnScreen = Camera:WorldToViewportPoint(headWorldPos)
+                local legScreenPos, legOnScreen = Camera:WorldToViewportPoint(legWorldPos)
+                
+                if headOnScreen and legOnScreen then
+                    local height = math.clamp(math.abs(headScreenPos.Y - legScreenPos.Y), 10, 1000)
+                    local width = height / 1.8
+                    local boxPos = Vector2.new(headScreenPos.X - (width / 2), headScreenPos.Y)
                     local boxSize = Vector2.new(width, height)
                     
                     if Config.ESPBox then
@@ -177,7 +174,7 @@ RunService.RenderStepped:Connect(function()
                     if Config.ESPName then
                         cache.NameText.Visible = true
                         cache.NameText.Text = player.Name
-                        cache.NameText.Position = Vector2.new(boxPos.X + (width / 2), boxPos.Y - 15)
+                        cache.NameText.Position = Vector2.new(headScreenPos.X, headScreenPos.Y - 14)
                     else
                         cache.NameText.Visible = false
                     end
@@ -210,7 +207,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Interface Gráfica Estilizada e Compacta
+-- Interface Gráfica
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NinjaAimbotGUI"
 ScreenGui.Parent = CoreGui
@@ -399,7 +396,6 @@ CreateToggle("Aimbot", "Aimbot", 24)
 CreateToggle("AimbotLegit", "Aimbot Legit", 54)
 CreateToggle("ShowFOV", "Show FOV", 84)
 
--- Regulador de FOV configurado perfeitamente com início em 50
 local FovBox = Instance.new("Frame")
 FovBox.Parent = Container
 FovBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
@@ -450,7 +446,7 @@ local SliderFill = Instance.new("Frame")
 SliderFill.Parent = SliderBack
 SliderFill.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
 SliderFill.BorderSizePixel = 0
-SliderFill.Size = UDim2.new(0.5, 0, 1, 0) -- 50% inicial
+SliderFill.Size = UDim2.new(0.5, 0, 1, 0)
 
 local SliderFillCorner = Instance.new("UICorner")
 SliderFillCorner.CornerRadius = UDim.new(0, 3)
@@ -496,4 +492,4 @@ CreateToggle("ESPName", "ESP Name", 184)
 CreateToggle("ESPBox", "ESP Box", 214)
 CreateToggle("ESPHealth", "ESP Health", 244)
 
-print("Ninja Aimbot 1.0 - Ready to Launch!")
+print("Ninja Aimbot ESP Fixed!")
