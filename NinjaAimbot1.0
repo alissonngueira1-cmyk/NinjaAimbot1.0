@@ -1,0 +1,499 @@
+-- // Ninja Aimbot 1.0 - Release Ready (Delta Optimized)
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Limpeza de instâncias anteriores para evitar duplicação de UI ou conexões fantasmas
+if CoreGui:FindFirstChild("NinjaAimbotGUI") then
+    CoreGui.NinjaAimbotGUI:Destroy()
+end
+
+local Config = {
+    Aimbot = false,
+    AimbotLegit = false,
+    ShowFOV = false,
+    FOVSize = 50,
+    ESPName = false,
+    ESPBox = false,
+    ESPHealth = false
+}
+
+-- Inicialização segura do Círculo de FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Transparency = 0.7
+FOVCircle.Thickness = 1.2
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Filled = false
+FOVCircle.Radius = Config.FOVSize * 2
+
+local espCache = {}
+
+local function removeESP(player)
+    if espCache[player] then
+        if espCache[player].Box then espCache[player].Box:Remove() end
+        if espCache[player].NameText then espCache[player].NameText:Remove() end
+        if espCache[player].HealthBack then espCache[player].HealthBack:Remove() end
+        if espCache[player].HealthBar then espCache[player].HealthBar:Remove() end
+        espCache[player] = nil
+    end
+end
+
+Players.PlayerRemoving:Connect(removeESP)
+
+-- Controlo de toque para desativar o Legit ao mover a câmara (Anti-Kick)
+local isMovingCamera = false
+UserInputService.TouchStarted:Connect(function()
+    isMovingCamera = true
+end)
+UserInputService.TouchEnded:Connect(function()
+    task.delay(0.12, function()
+        isMovingCamera = false
+    end)
+end)
+
+-- Sistema de alvo otimizado com raycast anti-parede e filtro de distância
+local function getClosestTarget(maxDist, maxAngle)
+    local selected = nil
+    local smallestAngle = maxAngle
+
+    for _, enemy in ipairs(Players:GetPlayers()) do
+        if enemy ~= LocalPlayer then
+            local character = enemy.Character
+            local head = character and character:FindFirstChild("Head")
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+            if head and humanoid and humanoid.Health > 0 then
+                local direction = head.Position - Camera.CFrame.Position
+                local distance = direction.Magnitude
+                local _, onScreen = Camera:WorldToViewportPoint(head.Position)
+
+                if onScreen and distance <= maxDist then
+                    local angle = math.deg(math.acos(math.clamp(
+                        Camera.CFrame.LookVector:Dot(direction.Unit),
+                        -1, 1
+                    )))
+
+                    local params = RaycastParams.new()
+                    params.FilterType = Enum.RaycastFilterType.Exclude
+                    params.FilterDescendantsInstances = {LocalPlayer.Character, character}
+                    params.IgnoreWater = true
+
+                    local hit = workspace:Raycast(Camera.CFrame.Position, direction, params)
+                    if not hit and angle < smallestAngle then
+                        smallestAngle = angle
+                        selected = head
+                    end
+                end
+            end
+        end
+    end
+    return selected
+end
+
+-- Loop principal executado por frame de forma segura
+RunService.RenderStepped:Connect(function()
+    if Config.ShowFOV then
+        FOVCircle.Visible = true
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FOVCircle.Radius = Config.FOVSize * 2
+    else
+        FOVCircle.Visible = false
+    end
+
+    if Config.Aimbot then
+        local targetHead = getClosestTarget(180, 30)
+        if targetHead then
+            local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.75)
+        end
+    end
+
+    if Config.AimbotLegit and not isMovingCamera then
+        local targetHead = getClosestTarget(150, 25)
+        if targetHead then
+            local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.35)
+        end
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            local humanoid = character and character:FindFirstChild("Humanoid")
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            local head = character and character:FindFirstChild("Head")
+
+            if character and humanoid and rootPart and head and humanoid.Health > 0 then
+                if not espCache[player] then
+                    espCache[player] = {
+                        Box = Drawing.new("Square"),
+                        NameText = Drawing.new("Text"),
+                        HealthBack = Drawing.new("Square"),
+                        HealthBar = Drawing.new("Square")
+                    }
+                    
+                    espCache[player].Box.Thickness = 1
+                    espCache[player].Box.Color = Color3.fromRGB(255, 255, 255)
+                    espCache[player].Box.Filled = false
+                    
+                    espCache[player].NameText.Size = 12
+                    espCache[player].NameText.Center = true
+                    espCache[player].NameText.Outline = true
+                    espCache[player].NameText.Color = Color3.fromRGB(255, 255, 255)
+                    
+                    espCache[player].HealthBack.Thickness = 1
+                    espCache[player].HealthBack.Color = Color3.fromRGB(20, 20, 20)
+                    espCache[player].HealthBack.Filled = true
+                    
+                    espCache[player].HealthBar.Thickness = 1
+                    espCache[player].HealthBar.Color = Color3.fromRGB(0, 255, 100)
+                    espCache[player].HealthBar.Filled = true
+                end
+                
+                local cache = espCache[player]
+                local rootPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                
+                if onScreen then
+                    local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 3, 0))
+                    
+                    local height = math.abs(headPos.Y - legPos.Y)
+                    local width = height / 2
+                    local boxPos = Vector2.new(rootPos.X - width / 2, headPos.Y)
+                    local boxSize = Vector2.new(width, height)
+                    
+                    if Config.ESPBox then
+                        cache.Box.Visible = true
+                        cache.Box.Size = boxSize
+                        cache.Box.Position = boxPos
+                    else
+                        cache.Box.Visible = false
+                    end
+                    
+                    if Config.ESPName then
+                        cache.NameText.Visible = true
+                        cache.NameText.Text = player.Name
+                        cache.NameText.Position = Vector2.new(boxPos.X + (width / 2), boxPos.Y - 15)
+                    else
+                        cache.NameText.Visible = false
+                    end
+                    
+                    if Config.ESPHealth and humanoid.MaxHealth > 0 then
+                        local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                        local barHeight = height * healthPercent
+                        
+                        cache.HealthBack.Visible = true
+                        cache.HealthBack.Size = Vector2.new(3, height)
+                        cache.HealthBack.Position = Vector2.new(boxPos.X - 6, boxPos.Y)
+                        
+                        cache.HealthBar.Visible = true
+                        cache.HealthBar.Size = Vector2.new(2, barHeight)
+                        cache.HealthBar.Position = Vector2.new(boxPos.X - 5.5, boxPos.Y + (height - barHeight))
+                    else
+                        cache.HealthBack.Visible = false
+                        cache.HealthBar.Visible = false
+                    end
+                else
+                    cache.Box.Visible = false
+                    cache.NameText.Visible = false
+                    cache.HealthBack.Visible = false
+                    cache.HealthBar.Visible = false
+                end
+            else
+                removeESP(player)
+            end
+        end
+    end
+end)
+
+-- Interface Gráfica Estilizada e Compacta
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NinjaAimbotGUI"
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.BorderSizePixel = 1
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -170)
+MainFrame.Size = UDim2.new(0, 300, 0, 340)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local UICornerMain = Instance.new("UICorner")
+UICornerMain.CornerRadius = UDim.new(0, 8)
+UICornerMain.Parent = MainFrame
+
+local TopBar = Instance.new("Frame")
+TopBar.Parent = MainFrame
+TopBar.BackgroundTransparency = 1
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+
+local LogoBox = Instance.new("Frame")
+LogoBox.Parent = TopBar
+LogoBox.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+LogoBox.BorderColor3 = Color3.fromRGB(50, 50, 50)
+LogoBox.Position = UDim2.new(0, 10, 0.5, -10)
+LogoBox.Size = UDim2.new(0, 20, 0, 20)
+
+local LogoCorner = Instance.new("UICorner")
+LogoCorner.CornerRadius = UDim.new(0, 4)
+LogoCorner.Parent = LogoBox
+
+local LogoText = Instance.new("TextLabel")
+LogoText.Parent = LogoBox
+LogoText.BackgroundTransparency = 1
+LogoText.Size = UDim2.new(1, 0, 1, 0)
+LogoText.Font = Enum.Font.GothamBold
+LogoText.Text = "忍"
+LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LogoText.TextSize = 11
+LogoText.TextXAlignment = Enum.TextXAlignment.Center
+LogoText.TextYAlignment = Enum.TextYAlignment.Center
+
+local Title = Instance.new("TextLabel")
+Title.Parent = TopBar
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 38, 0, 0)
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Ninja Aimbot 1.0"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 12
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Parent = TopBar
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+MinimizeBtn.BorderColor3 = Color3.fromRGB(50, 50, 50)
+MinimizeBtn.Position = UDim2.new(1, -28, 0.5, -9)
+MinimizeBtn.Size = UDim2.new(0, 18, 0, 18)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+MinimizeBtn.TextSize = 13
+MinimizeBtn.AutoButtonColor = false
+
+local MinimizeCorner = Instance.new("UICorner")
+MinimizeCorner.CornerRadius = UDim.new(0, 4)
+MinimizeCorner.Parent = MinimizeBtn
+
+local Line = Instance.new("Frame")
+Line.Parent = MainFrame
+Line.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Line.BorderSizePixel = 0
+Line.Position = UDim2.new(0, 0, 0, 35)
+Line.Size = UDim2.new(1, 0, 0, 1)
+
+local Container = Instance.new("ScrollingFrame")
+Container.Parent = MainFrame
+Container.BackgroundTransparency = 1
+Container.Position = UDim2.new(0, 0, 0, 36)
+Container.Size = UDim2.new(1, 0, 1, -36)
+Container.CanvasSize = UDim2.new(0, 0, 0, 325)
+Container.ScrollBarThickness = 2
+Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+
+local minimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    MinimizeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    task.delay(0.1, function()
+        MinimizeBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    end)
+    
+    if minimized then
+        MinimizeBtn.Text = "+"
+        Container.Visible = false
+        MainFrame:TweenSize(UDim2.new(0, 300, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+    else
+        MinimizeBtn.Text = "-"
+        Container.Visible = true
+        MainFrame:TweenSize(UDim2.new(0, 300, 0, 340), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+    end
+end)
+
+local function CreateSection(text, posY)
+    local indicator = Instance.new("Frame")
+    indicator.Parent = Container
+    indicator.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    indicator.BorderSizePixel = 0
+    indicator.Position = UDim2.new(0, 10, 0, posY)
+    indicator.Size = UDim2.new(0, 2, 0, 10)
+    
+    local label = Instance.new("TextLabel")
+    label.Parent = Container
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 16, 0, posY - 5)
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Font = Enum.Font.GothamBold
+    label.TextColor3 = Color3.fromRGB(190, 190, 190)
+    label.TextSize = 10
+    label.Text = text
+    label.TextXAlignment = Enum.TextXAlignment.Left
+end
+
+local function CreateToggle(configKey, name, posY)
+    local frame = Instance.new("TextButton")
+    frame.Parent = Container
+    frame.BackgroundTransparency = 1
+    frame.Position = UDim2.new(0, 10, 0, posY)
+    frame.Size = UDim2.new(1, -20, 0, 26)
+    frame.Text = ""
+    frame.AutoButtonColor = false
+    
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Parent = frame
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Position = UDim2.new(0, 0, 0.5, -7)
+    titleLbl.Size = UDim2.new(1, -45, 0, 14)
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.Text = name
+    titleLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    titleLbl.TextSize = 11
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local switchBg = Instance.new("Frame")
+    switchBg.Parent = frame
+    switchBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    switchBg.BorderColor3 = Color3.fromRGB(45, 45, 45)
+    switchBg.Position = UDim2.new(1, -38, 0.5, -9)
+    switchBg.Size = UDim2.new(0, 38, 0, 18)
+    
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(1, 0)
+    switchCorner.Parent = switchBg
+    
+    local switchCircle = Instance.new("Frame")
+    switchCircle.Parent = switchBg
+    switchCircle.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+    switchCircle.Position = UDim2.new(0, 2, 0.5, -7)
+    switchCircle.Size = UDim2.new(0, 14, 0, 14)
+    
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = switchCircle
+    
+    frame.MouseButton1Click:Connect(function()
+        Config[configKey] = not Config[configKey]
+        
+        if Config[configKey] then
+            switchBg.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+            switchCircle.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+            switchCircle:TweenPosition(UDim2.new(1, -16, 0.5, -7), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+        else
+            switchBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            switchCircle.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+            switchCircle:TweenPosition(UDim2.new(0, 2, 0.5, -7), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+        end
+    end)
+end
+
+CreateSection("AIMBOT FUNCTION", 8)
+CreateToggle("Aimbot", "Aimbot", 24)
+CreateToggle("AimbotLegit", "Aimbot Legit", 54)
+CreateToggle("ShowFOV", "Show FOV", 84)
+
+-- Regulador de FOV configurado perfeitamente com início em 50
+local FovBox = Instance.new("Frame")
+FovBox.Parent = Container
+FovBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+FovBox.BorderColor3 = Color3.fromRGB(40, 40, 40)
+FovBox.Position = UDim2.new(0, 10, 0, 116)
+FovBox.Size = UDim2.new(1, -20, 0, 44)
+
+local FovCorner = Instance.new("UICorner")
+FovCorner.CornerRadius = UDim.new(0, 5)
+FovCorner.Parent = FovBox
+
+local FovTitle = Instance.new("TextLabel")
+FovTitle.Parent = FovBox
+FovTitle.BackgroundTransparency = 1
+FovTitle.Position = UDim2.new(0, 8, 0, 5)
+FovTitle.Size = UDim2.new(1, -16, 0, 12)
+FovTitle.Font = Enum.Font.GothamBold
+FovTitle.Text = "FOV Size"
+FovTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+FovTitle.TextSize = 10
+FovTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local FovValue = Instance.new("TextLabel")
+FovValue.Parent = FovBox
+FovValue.BackgroundTransparency = 1
+FovValue.Position = UDim2.new(1, -70, 0, 5)
+FovValue.Size = UDim2.new(0, 62, 0, 12)
+FovValue.Font = Enum.Font.GothamBold
+FovValue.Text = "50 / 100"
+FovValue.TextColor3 = Color3.fromRGB(170, 170, 170)
+FovValue.TextSize = 10
+FovValue.TextXAlignment = Enum.TextXAlignment.Right
+
+local SliderBack = Instance.new("TextButton")
+SliderBack.Parent = FovBox
+SliderBack.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+SliderBack.BorderColor3 = Color3.fromRGB(50, 50, 50)
+SliderBack.Position = UDim2.new(0, 8, 0, 22)
+SliderBack.Size = UDim2.new(1, -16, 0, 12)
+SliderBack.AutoButtonColor = false
+SliderBack.Text = ""
+
+local SliderBackCorner = Instance.new("UICorner")
+SliderBackCorner.CornerRadius = UDim.new(0, 3)
+SliderBackCorner.Parent = SliderBack
+
+local SliderFill = Instance.new("Frame")
+SliderFill.Parent = SliderBack
+SliderFill.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+SliderFill.BorderSizePixel = 0
+SliderFill.Size = UDim2.new(0.5, 0, 1, 0) -- 50% inicial
+
+local SliderFillCorner = Instance.new("UICorner")
+SliderFillCorner.CornerRadius = UDim.new(0, 3)
+SliderFillCorner.Parent = SliderFill
+
+local draggingSlider = false
+
+local function updateSlider(input)
+    local sliderAbsPos = SliderBack.AbsolutePosition.X
+    local sliderAbsSize = SliderBack.AbsoluteSize.X
+    local inputPos = input.Position.X
+    
+    local percentage = math.clamp((inputPos - sliderAbsPos) / sliderAbsSize, 0, 1)
+    SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+    
+    local calculatedValue = math.floor(percentage * 100)
+    Config.FOVSize = calculatedValue
+    FovValue.Text = calculatedValue .. " / 100"
+    FOVCircle.Radius = calculatedValue * 2
+end
+
+SliderBack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingSlider = true
+        updateSlider(input)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingSlider = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateSlider(input)
+    end
+end)
+
+CreateSection("ESP FUNCTION", 168)
+CreateToggle("ESPName", "ESP Name", 184)
+CreateToggle("ESPBox", "ESP Box", 214)
+CreateToggle("ESPHealth", "ESP Health", 244)
+
+print("Ninja Aimbot 1.0 - Ready to Launch!")
