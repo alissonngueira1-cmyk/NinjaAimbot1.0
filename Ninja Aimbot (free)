@@ -1,8 +1,9 @@
--- // Ninja Aimbot (free) - Sinonia RP Edition
+-- // Ninja Aimbot (free) - Sinonia RP Edition (ESP Fix)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -13,6 +14,79 @@ pcall(function()
     end
 end)
 
+-- Loading Screen
+local LoadGui = Instance.new("ScreenGui")
+LoadGui.Name = "NinjaAimbotGUI"
+LoadGui.Parent = CoreGui
+
+local LoadFrame = Instance.new("Frame")
+LoadFrame.Parent = LoadGui
+LoadFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+LoadFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
+LoadFrame.BorderSizePixel = 1
+LoadFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
+LoadFrame.Size = UDim2.new(0, 250, 0, 100)
+
+local LoadCorner = Instance.new("UICorner")
+LoadCorner.CornerRadius = UDim.new(0, 8)
+LoadCorner.Parent = LoadFrame
+
+local LoadTitle = Instance.new("TextLabel")
+LoadTitle.Parent = LoadFrame
+LoadTitle.BackgroundTransparency = 1
+LoadTitle.Position = UDim2.new(0, 0, 0, 12)
+LoadTitle.Size = UDim2.new(1, 0, 0, 20)
+LoadTitle.Font = Enum.Font.GothamBold
+LoadTitle.Text = "Ninja Aimbot (free)"
+LoadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadTitle.TextSize = 12
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Parent = LoadFrame
+StatusText.BackgroundTransparency = 1
+StatusText.Position = UDim2.new(0, 0, 0, 32)
+StatusText.Size = UDim2.new(1, 0, 0, 15)
+StatusText.Font = Enum.Font.Gotham
+StatusText.Text = "Carregando ESP Estável..."
+StatusText.TextColor3 = Color3.fromRGB(150, 150, 150)
+StatusText.TextSize = 10
+
+local BarBackground = Instance.new("Frame")
+BarBackground.Parent = LoadFrame
+BarBackground.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+BarBackground.BorderColor3 = Color3.fromRGB(50, 50, 50)
+BarBackground.Position = UDim2.new(0, 15, 0, 62)
+BarBackground.Size = UDim2.new(1, -30, 0, 10)
+
+local BarCorner = Instance.new("UICorner")
+BarCorner.CornerRadius = UDim.new(0, 3)
+BarCorner.Parent = BarBackground
+
+local BarFill = Instance.new("Frame")
+BarFill.Parent = BarBackground
+BarFill.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+BarFill.BorderSizePixel = 0
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(0, 3)
+FillCorner.Parent = BarFill
+
+local function updateLoad(progress, text)
+    StatusText.Text = text
+    TweenService:Create(BarFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(progress, 0, 1, 0)
+    }):Play()
+end
+
+task.wait(0.2)
+updateLoad(0.5, "Otimizando cálculo da ESP...")
+task.wait(0.4)
+updateLoad(1.0, "Pronto!")
+task.wait(0.3)
+LoadGui:Destroy()
+
+-- Configuracoes
 local Config = {
     Aimbot = false,
     AimbotLegit = false,
@@ -20,7 +94,7 @@ local Config = {
     FOVSize = 50,
     ESPBox = false,
     ESPName = false,
-    ESPHealth = false -- Toggle individual para a Barra de Vida
+    ESPHealth = false
 }
 
 local CFG = {
@@ -29,10 +103,10 @@ local CFG = {
     BoxColor    = Color3.fromRGB(255, 80, 80),
     BoxThick    = 1.5,
     NameColor   = Color3.fromRGB(255, 255, 255),
-    NameSize    = 12,
+    NameSize    = 11,
 }
 
--- Círculo de FOV
+-- FOV Circle
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Transparency = 0.7
@@ -80,7 +154,6 @@ local function buildESP(player)
             Center       = true,
             ZIndex       = 3,
         }),
-        -- Elementos da Barra de Vida (Fundo preto + Barra de progresso verde)
         healthBack = newDraw("Square", {
             Visible      = false,
             Color        = Color3.fromRGB(20, 20, 20),
@@ -121,16 +194,9 @@ local function hideObj(obj)
     obj.healthBar.Visible = false
 end
 
--- Controlo de toque para Anti-Kick mobile
 local isMovingCamera = false
-UserInputService.TouchStarted:Connect(function()
-    isMovingCamera = true
-end)
-UserInputService.TouchEnded:Connect(function()
-    task.delay(0.12, function()
-        isMovingCamera = false
-    end)
-end)
+UserInputService.TouchStarted:Connect(function() isMovingCamera = true end)
+UserInputService.TouchEnded:Connect(function() task.delay(0.12, function() isMovingCamera = false end) end)
 
 local function getClosestTarget(maxDist, maxAngle)
     local selected = nil
@@ -170,18 +236,7 @@ local function getClosestTarget(maxDist, maxAngle)
     return selected
 end
 
-local CORNERS = {
-    Vector3.new( 1.5,  3.2,  1.5),
-    Vector3.new(-1.5,  3.2,  1.5),
-    Vector3.new( 1.5,  3.2, -1.5),
-    Vector3.new(-1.5,  3.2, -1.5),
-    Vector3.new( 1.5, -3.0,  1.5),
-    Vector3.new(-1.5, -3.0,  1.5),
-    Vector3.new( 1.5, -3.0, -1.5),
-    Vector3.new(-1.5, -3.0, -1.5),
-}
-
--- Loop principal
+-- RenderStepped Principal (ESP Corrigida)
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if Config.ShowFOV then
@@ -195,19 +250,18 @@ RunService.RenderStepped:Connect(function()
         if Config.Aimbot then
             local targetHead = getClosestTarget(180, 30)
             if targetHead then
-                local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.75)
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, targetHead.Position), 0.75)
             end
         end
 
         if Config.AimbotLegit and not isMovingCamera then
             local targetHead = getClosestTarget(150, 25)
             if targetHead then
-                local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.35)
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, targetHead.Position), 0.35)
             end
         end
 
+        -- Loop de renderização da ESP
         for player, obj in pairs(espObjs) do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -216,33 +270,28 @@ RunService.RenderStepped:Connect(function()
             if not root or not hum or hum.Health <= 0 then
                 hideObj(obj)
             else
-                local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
-                local allVis = true
-
-                for _, offset in ipairs(CORNERS) do
-                    local wp = root.CFrame:PointToWorldSpace(offset)
-                    local sp, vis = Camera:WorldToViewportPoint(wp)
-                    if not vis then allVis = false; break end
-                    if sp.X < minX then minX = sp.X end
-                    if sp.Y < minY then minY = sp.Y end
-                    if sp.X > maxX then maxX = sp.X end
-                    if sp.Y > maxY then maxY = sp.Y end
-                end
-
-                if not allVis then
+                -- Posição 2D mais estável (Topo do personagem e pés)
+                local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                
+                if not onScreen then
                     hideObj(obj)
                 else
-                    local w = maxX - minX
-                    local h = maxY - minY
+                    local headPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
+                    local legPos  = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3.5, 0))
+                    
+                    local height = math.abs(headPos.Y - legPos.Y)
+                    local width  = height * 0.65
+                    local posX   = rootPos.X - (width / 2)
+                    local posY   = headPos.Y
 
                     -- ESP Box
                     if Config.ESPBox then
-                        obj.fill.Position = Vector2.new(minX, minY)
-                        obj.fill.Size     = Vector2.new(w, h)
+                        obj.fill.Position = Vector2.new(posX, posY)
+                        obj.fill.Size     = Vector2.new(width, height)
                         obj.fill.Visible  = true
 
-                        obj.box.Position  = Vector2.new(minX, minY)
-                        obj.box.Size      = Vector2.new(w, h)
+                        obj.box.Position  = Vector2.new(posX, posY)
+                        obj.box.Size      = Vector2.new(width, height)
                         obj.box.Visible   = true
                     else
                         obj.fill.Visible = false
@@ -252,22 +301,22 @@ RunService.RenderStepped:Connect(function()
                     -- ESP Name
                     if Config.ESPName then
                         obj.name.Text     = player.DisplayName
-                        obj.name.Position = Vector2.new(minX + w / 2, minY - CFG.NameSize - 4)
+                        obj.name.Position = Vector2.new(posX + (width / 2), posY - CFG.NameSize - 4)
                         obj.name.Visible  = true
                     else
                         obj.name.Visible  = false
                     end
 
-                    -- ESP Health (Barra de Vida Lateral)
+                    -- ESP Health (Barra Lateral)
                     if Config.ESPHealth and hum.MaxHealth > 0 then
                         local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                        local barHeight = h * healthPercent
+                        local barHeight = height * healthPercent
                         
-                        obj.healthBack.Position = Vector2.new(minX - 6, minY)
-                        obj.healthBack.Size     = Vector2.new(3, h)
+                        obj.healthBack.Position = Vector2.new(posX - 5, posY)
+                        obj.healthBack.Size     = Vector2.new(3, height)
                         obj.healthBack.Visible  = true
 
-                        obj.healthBar.Position  = Vector2.new(minX - 5.5, minY + (h - barHeight))
+                        obj.healthBar.Position  = Vector2.new(posX - 4.5, posY + (height - barHeight))
                         obj.healthBar.Size      = Vector2.new(2, barHeight)
                         obj.healthBar.Visible   = true
                     else
@@ -280,7 +329,7 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Interface Gráfica (Ninja Aimbot free)
+-- UI Principal
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NinjaAimbotGUI"
 ScreenGui.Parent = CoreGui
@@ -291,7 +340,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.BorderSizePixel = 1
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -190)
-MainFrame.Size = UDim2.new(0, 300, 0, 375) -- Aumentado levemente para encaixar o novo toggle
+MainFrame.Size = UDim2.new(0, 300, 0, 375)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
@@ -323,8 +372,6 @@ LogoText.Font = Enum.Font.GothamBold
 LogoText.Text = "忍"
 LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
 LogoText.TextSize = 11
-LogoText.TextXAlignment = Enum.TextXAlignment.Center
-LogoText.TextYAlignment = Enum.TextYAlignment.Center
 
 local Title = Instance.new("TextLabel")
 Title.Parent = TopBar
@@ -372,11 +419,6 @@ Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
 local minimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
-    MinimizeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    task.delay(0.1, function()
-        MinimizeBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    end)
-    
     if minimized then
         MinimizeBtn.Text = "+"
         Container.Visible = false
@@ -469,7 +511,6 @@ CreateToggle("Aimbot", "Aimbot", 24)
 CreateToggle("AimbotLegit", "Aimbot Legit", 54)
 CreateToggle("ShowFOV", "Show FOV", 84)
 
--- Regulador de FOV
 local FovBox = Instance.new("Frame")
 FovBox.Parent = Container
 FovBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
@@ -527,44 +568,3 @@ SliderFillCorner.CornerRadius = UDim.new(0, 3)
 SliderFillCorner.Parent = SliderFill
 
 local draggingSlider = false
-
-local function updateSlider(input)
-    local sliderAbsPos = SliderBack.AbsolutePosition.X
-    local sliderAbsSize = SliderBack.AbsoluteSize.X
-    local inputPos = input.Position.X
-    
-    local percentage = math.clamp((inputPos - sliderAbsPos) / sliderAbsSize, 0, 1)
-    SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
-    
-    local calculatedValue = math.floor(percentage * 100)
-    Config.FOVSize = calculatedValue
-    FovValue.Text = calculatedValue .. " / 100"
-    FOVCircle.Radius = calculatedValue * 2
-end
-
-SliderBack.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingSlider = true
-        updateSlider(input)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingSlider = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        updateSlider(input)
-    end
-end)
-
--- Seção de ESP Completa (Box, Name, Health)
-CreateSection("ESP FUNCTION", 168)
-CreateToggle("ESPBox", "ESP Box", 184)
-CreateToggle("ESPName", "ESP Name", 214)
-CreateToggle("ESPHealth", "ESP Health", 244)
-
-print("Ninja Aimbot (free) Loaded Successfully!")
