@@ -1,4 +1,4 @@
--- // Ninja Aimbot 1.0 - Release Ready (Delta Optimized & ESP Fixed)
+-- // Ninja Aimbot (free) - Sinonia RP Edition
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,18 +7,29 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -- Limpeza de instâncias anteriores
-if CoreGui:FindFirstChild("NinjaAimbotGUI") then
-    CoreGui.NinjaAimbotGUI:Destroy()
-end
+pcall(function()
+    if CoreGui:FindFirstChild("NinjaAimbotGUI") then
+        CoreGui.NinjaAimbotGUI:Destroy()
+    end
+end)
 
 local Config = {
     Aimbot = false,
     AimbotLegit = false,
     ShowFOV = false,
     FOVSize = 50,
-    ESPName = false,
     ESPBox = false,
-    ESPHealth = false
+    ESPName = false,
+    ESPHealth = false -- Toggle individual para a Barra de Vida
+}
+
+local CFG = {
+    FillColor   = Color3.fromRGB(255, 40, 40),
+    FillAlpha   = 0.15,
+    BoxColor    = Color3.fromRGB(255, 80, 80),
+    BoxThick    = 1.5,
+    NameColor   = Color3.fromRGB(255, 255, 255),
+    NameSize    = 12,
 }
 
 -- Círculo de FOV
@@ -30,21 +41,87 @@ FOVCircle.Color = Color3.fromRGB(255, 255, 255)
 FOVCircle.Filled = false
 FOVCircle.Radius = Config.FOVSize * 2
 
-local espCache = {}
+local espObjs = {}
+
+local function newDraw(class, props)
+    local d = Drawing.new(class)
+    for k, v in pairs(props) do d[k] = v end
+    return d
+end
+
+local function buildESP(player)
+    if player == LocalPlayer then return end
+    if espObjs[player] then return end
+    
+    espObjs[player] = {
+        fill = newDraw("Square", {
+            Visible      = false,
+            Color        = CFG.FillColor,
+            Transparency = CFG.FillAlpha,
+            Filled       = true,
+            Thickness    = 0,
+            ZIndex       = 1,
+        }),
+        box = newDraw("Square", {
+            Visible      = false,
+            Color        = CFG.BoxColor,
+            Transparency = 1,
+            Filled       = false,
+            Thickness    = CFG.BoxThick,
+            ZIndex       = 2,
+        }),
+        name = newDraw("Text", {
+            Visible      = false,
+            Color        = CFG.NameColor,
+            Size         = CFG.NameSize,
+            Font         = Drawing.Fonts.UI,
+            Outline      = true,
+            OutlineColor = Color3.fromRGB(0, 0, 0),
+            Center       = true,
+            ZIndex       = 3,
+        }),
+        -- Elementos da Barra de Vida (Fundo preto + Barra de progresso verde)
+        healthBack = newDraw("Square", {
+            Visible      = false,
+            Color        = Color3.fromRGB(20, 20, 20),
+            Transparency = 1,
+            Filled       = true,
+            Thickness    = 1,
+            ZIndex       = 2,
+        }),
+        healthBar = newDraw("Square", {
+            Visible      = false,
+            Color        = Color3.fromRGB(0, 255, 100),
+            Transparency = 1,
+            Filled       = true,
+            Thickness    = 1,
+            ZIndex       = 3,
+        }),
+    }
+end
 
 local function removeESP(player)
-    if espCache[player] then
-        if espCache[player].Box then espCache[player].Box:Remove() end
-        if espCache[player].NameText then espCache[player].NameText:Remove() end
-        if espCache[player].HealthBack then espCache[player].HealthBack:Remove() end
-        if espCache[player].HealthBar then espCache[player].HealthBar:Remove() end
-        espCache[player] = nil
-    end
+    local obj = espObjs[player]
+    if not obj then return end
+    pcall(function()
+        for _, d in pairs(obj) do d.Visible = false; d:Remove() end
+    end)
+    espObjs[player] = nil
 end
 
 Players.PlayerRemoving:Connect(removeESP)
+for _, p in ipairs(Players:GetPlayers()) do buildESP(p) end
+Players.PlayerAdded:Connect(buildESP)
 
--- Controlo de toque para Anti-Kick
+local function hideObj(obj)
+    obj.fill.Visible = false
+    obj.box.Visible  = false
+    obj.name.Visible = false
+    obj.healthBack.Visible = false
+    obj.healthBar.Visible = false
+end
+
+-- Controlo de toque para Anti-Kick mobile
 local isMovingCamera = false
 UserInputService.TouchStarted:Connect(function()
     isMovingCamera = true
@@ -93,131 +170,117 @@ local function getClosestTarget(maxDist, maxAngle)
     return selected
 end
 
+local CORNERS = {
+    Vector3.new( 1.5,  3.2,  1.5),
+    Vector3.new(-1.5,  3.2,  1.5),
+    Vector3.new( 1.5,  3.2, -1.5),
+    Vector3.new(-1.5,  3.2, -1.5),
+    Vector3.new( 1.5, -3.0,  1.5),
+    Vector3.new(-1.5, -3.0,  1.5),
+    Vector3.new( 1.5, -3.0, -1.5),
+    Vector3.new(-1.5, -3.0, -1.5),
+}
+
 -- Loop principal
 RunService.RenderStepped:Connect(function()
-    if Config.ShowFOV then
-        FOVCircle.Visible = true
-        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        FOVCircle.Radius = Config.FOVSize * 2
-    else
-        FOVCircle.Visible = false
-    end
-
-    if Config.Aimbot then
-        local targetHead = getClosestTarget(180, 30)
-        if targetHead then
-            local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.75)
+    pcall(function()
+        if Config.ShowFOV then
+            FOVCircle.Visible = true
+            FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            FOVCircle.Radius = Config.FOVSize * 2
+        else
+            FOVCircle.Visible = false
         end
-    end
 
-    if Config.AimbotLegit and not isMovingCamera then
-        local targetHead = getClosestTarget(150, 25)
-        if targetHead then
-            local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.35)
-        end
-    end
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local character = player.Character
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-            local head = character and character:FindFirstChild("Head")
-
-            if character and humanoid and rootPart and head and humanoid.Health > 0 then
-                if not espCache[player] then
-                    espCache[player] = {
-                        Box = Drawing.new("Square"),
-                        NameText = Drawing.new("Text"),
-                        HealthBack = Drawing.new("Square"),
-                        HealthBar = Drawing.new("Square")
-                    }
-                    
-                    espCache[player].Box.Thickness = 1
-                    espCache[player].Box.Color = Color3.fromRGB(255, 255, 255)
-                    espCache[player].Box.Filled = false
-                    
-                    espCache[player].NameText.Size = 12
-                    espCache[player].NameText.Center = true
-                    espCache[player].NameText.Outline = true
-                    espCache[player].NameText.Color = Color3.fromRGB(255, 255, 255)
-                    
-                    espCache[player].HealthBack.Thickness = 1
-                    espCache[player].HealthBack.Color = Color3.fromRGB(20, 20, 20)
-                    espCache[player].HealthBack.Filled = true
-                    
-                    espCache[player].HealthBar.Thickness = 1
-                    espCache[player].HealthBar.Color = Color3.fromRGB(0, 255, 100)
-                    espCache[player].HealthBar.Filled = true
-                end
-                
-                local cache = espCache[player]
-                local rootVector, rootOnScreen = Camera:WorldToViewportPoint(rootPart.Position)
-                
-                -- Validação estricta de profundidade (Z > 0) para evitar que o ESP fique preso no canto superior
-                if rootOnScreen and rootVector.Z > 0 then
-                    local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                    local legPos, legOnScreen = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 2.5, 0))
-                    
-                    if headOnScreen and legOnScreen then
-                        local height = math.abs(headPos.Y - legPos.Y)
-                        local width = height / 2
-                        local boxPos = Vector2.new(rootVector.X - width / 2, headPos.Y)
-                        local boxSize = Vector2.new(width, height)
-                        
-                        if Config.ESPBox then
-                            cache.Box.Visible = true
-                            cache.Box.Size = boxSize
-                            cache.Box.Position = boxPos
-                        else
-                            cache.Box.Visible = false
-                        end
-                        
-                        if Config.ESPName then
-                            cache.NameText.Visible = true
-                            cache.NameText.Text = player.Name
-                            cache.NameText.Position = Vector2.new(boxPos.X + (width / 2), boxPos.Y - 16)
-                        else
-                            cache.NameText.Visible = false
-                        end
-                        
-                        if Config.ESPHealth and humanoid.MaxHealth > 0 then
-                            local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-                            local barHeight = height * healthPercent
-                            
-                            cache.HealthBack.Visible = true
-                            cache.HealthBack.Size = Vector2.new(3, height)
-                            cache.HealthBack.Position = Vector2.new(boxPos.X - 6, boxPos.Y)
-                            
-                            cache.HealthBar.Visible = true
-                            cache.HealthBar.Size = Vector2.new(2, barHeight)
-                            cache.HealthBar.Position = Vector2.new(boxPos.X - 5.5, boxPos.Y + (height - barHeight))
-                        else
-                            cache.HealthBack.Visible = false
-                            cache.HealthBar.Visible = false
-                        end
-                    else
-                        cache.Box.Visible = false
-                        cache.NameText.Visible = false
-                        cache.HealthBack.Visible = false
-                        cache.HealthBar.Visible = false
-                    end
-                else
-                    cache.Box.Visible = false
-                    cache.NameText.Visible = false
-                    cache.HealthBack.Visible = false
-                    cache.HealthBar.Visible = false
-                end
-            else
-                removeESP(player)
+        if Config.Aimbot then
+            local targetHead = getClosestTarget(180, 30)
+            if targetHead then
+                local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.75)
             end
         end
-    end
+
+        if Config.AimbotLegit and not isMovingCamera then
+            local targetHead = getClosestTarget(150, 25)
+            if targetHead then
+                local goalCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(goalCFrame, 0.35)
+            end
+        end
+
+        for player, obj in pairs(espObjs) do
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+
+            if not root or not hum or hum.Health <= 0 then
+                hideObj(obj)
+            else
+                local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+                local allVis = true
+
+                for _, offset in ipairs(CORNERS) do
+                    local wp = root.CFrame:PointToWorldSpace(offset)
+                    local sp, vis = Camera:WorldToViewportPoint(wp)
+                    if not vis then allVis = false; break end
+                    if sp.X < minX then minX = sp.X end
+                    if sp.Y < minY then minY = sp.Y end
+                    if sp.X > maxX then maxX = sp.X end
+                    if sp.Y > maxY then maxY = sp.Y end
+                end
+
+                if not allVis then
+                    hideObj(obj)
+                else
+                    local w = maxX - minX
+                    local h = maxY - minY
+
+                    -- ESP Box
+                    if Config.ESPBox then
+                        obj.fill.Position = Vector2.new(minX, minY)
+                        obj.fill.Size     = Vector2.new(w, h)
+                        obj.fill.Visible  = true
+
+                        obj.box.Position  = Vector2.new(minX, minY)
+                        obj.box.Size      = Vector2.new(w, h)
+                        obj.box.Visible   = true
+                    else
+                        obj.fill.Visible = false
+                        obj.box.Visible  = false
+                    end
+
+                    -- ESP Name
+                    if Config.ESPName then
+                        obj.name.Text     = player.DisplayName
+                        obj.name.Position = Vector2.new(minX + w / 2, minY - CFG.NameSize - 4)
+                        obj.name.Visible  = true
+                    else
+                        obj.name.Visible  = false
+                    end
+
+                    -- ESP Health (Barra de Vida Lateral)
+                    if Config.ESPHealth and hum.MaxHealth > 0 then
+                        local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                        local barHeight = h * healthPercent
+                        
+                        obj.healthBack.Position = Vector2.new(minX - 6, minY)
+                        obj.healthBack.Size     = Vector2.new(3, h)
+                        obj.healthBack.Visible  = true
+
+                        obj.healthBar.Position  = Vector2.new(minX - 5.5, minY + (h - barHeight))
+                        obj.healthBar.Size      = Vector2.new(2, barHeight)
+                        obj.healthBar.Visible   = true
+                    else
+                        obj.healthBack.Visible  = false
+                        obj.healthBar.Visible   = false
+                    end
+                end
+            end
+        end
+    end)
 end)
 
--- Interface Gráfica
+-- Interface Gráfica (Ninja Aimbot free)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NinjaAimbotGUI"
 ScreenGui.Parent = CoreGui
@@ -227,8 +290,8 @@ MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 MainFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.BorderSizePixel = 1
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -170)
-MainFrame.Size = UDim2.new(0, 300, 0, 340)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -190)
+MainFrame.Size = UDim2.new(0, 300, 0, 375) -- Aumentado levemente para encaixar o novo toggle
 MainFrame.Active = true
 MainFrame.Draggable = true
 
@@ -269,7 +332,7 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 38, 0, 0)
 Title.Size = UDim2.new(1, -70, 1, 0)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "Ninja Aimbot 1.0"
+Title.Text = "Ninja Aimbot (free)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -302,7 +365,7 @@ Container.Parent = MainFrame
 Container.BackgroundTransparency = 1
 Container.Position = UDim2.new(0, 0, 0, 36)
 Container.Size = UDim2.new(1, 0, 1, -36)
-Container.CanvasSize = UDim2.new(0, 0, 0, 325)
+Container.CanvasSize = UDim2.new(0, 0, 0, 320)
 Container.ScrollBarThickness = 2
 Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
 
@@ -321,7 +384,7 @@ MinimizeBtn.MouseButton1Click:Connect(function()
     else
         MinimizeBtn.Text = "-"
         Container.Visible = true
-        MainFrame:TweenSize(UDim2.new(0, 300, 0, 340), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+        MainFrame:TweenSize(UDim2.new(0, 300, 0, 375), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
     end
 end)
 
@@ -498,9 +561,10 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- Seção de ESP Completa (Box, Name, Health)
 CreateSection("ESP FUNCTION", 168)
-CreateToggle("ESPName", "ESP Name", 184)
-CreateToggle("ESPBox", "ESP Box", 214)
+CreateToggle("ESPBox", "ESP Box", 184)
+CreateToggle("ESPName", "ESP Name", 214)
 CreateToggle("ESPHealth", "ESP Health", 244)
 
-print("Ninja Aimbot 1.0 - Ready to Launch!")
+print("Ninja Aimbot (free) Loaded Successfully!")
