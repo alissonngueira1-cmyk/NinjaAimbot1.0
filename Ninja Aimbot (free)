@@ -1,4 +1,4 @@
--- // Ninja Aimbot (free) - Sinonia RP Edition (ESP Corrigida)
+-- // Ninja Aimbot (free) - Sinonia RP Edition (ESP Mobile Fix)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -47,7 +47,7 @@ StatusText.BackgroundTransparency = 1
 StatusText.Position = UDim2.new(0, 0, 0, 32)
 StatusText.Size = UDim2.new(1, 0, 0, 15)
 StatusText.Font = Enum.Font.Gotham
-StatusText.Text = "Iniciando ESP 3D..."
+StatusText.Text = "Carregando ESP Mobile..."
 StatusText.TextColor3 = Color3.fromRGB(150, 150, 150)
 StatusText.TextSize = 10
 
@@ -80,7 +80,7 @@ local function updateLoad(progress, text)
 end
 
 task.wait(0.2)
-updateLoad(0.5, "Carregando modulos...")
+updateLoad(0.5, "Otimizando compatibilidade...")
 task.wait(0.4)
 updateLoad(1.0, "Pronto!")
 task.wait(0.3)
@@ -98,10 +98,7 @@ local Config = {
 }
 
 local CFG = {
-    FillColor   = Color3.fromRGB(255, 40, 40),
-    FillAlpha   = 0.15,
-    BoxColor    = Color3.fromRGB(255, 80, 80),
-    BoxThick    = 1.5,
+    BoxColor    = Color3.fromRGB(255, 60, 60),
     NameColor   = Color3.fromRGB(255, 255, 255),
     NameSize    = 12,
 }
@@ -128,22 +125,12 @@ local function buildESP(player)
     if espObjs[player] then return end
     
     espObjs[player] = {
-        fill = newDraw("Square", {
-            Visible      = false,
-            Color        = CFG.FillColor,
-            Transparency = CFG.FillAlpha,
-            Filled       = true,
-            Thickness    = 0,
-            ZIndex       = 1,
-        }),
-        box = newDraw("Square", {
-            Visible      = false,
-            Color        = CFG.BoxColor,
-            Transparency = 1,
-            Filled       = false,
-            Thickness    = CFG.BoxThick,
-            ZIndex       = 2,
-        }),
+        -- 4 Linhas para formar a Box perfeitamente no mobile
+        line1 = newDraw("Line", { Visible = false, Color = CFG.BoxColor, Thickness = 1.5, ZIndex = 2 }),
+        line2 = newDraw("Line", { Visible = false, Color = CFG.BoxColor, Thickness = 1.5, ZIndex = 2 }),
+        line3 = newDraw("Line", { Visible = false, Color = CFG.BoxColor, Thickness = 1.5, ZIndex = 2 }),
+        line4 = newDraw("Line", { Visible = false, Color = CFG.BoxColor, Thickness = 1.5, ZIndex = 2 }),
+        
         name = newDraw("Text", {
             Visible      = false,
             Color        = CFG.NameColor,
@@ -187,8 +174,10 @@ for _, p in ipairs(Players:GetPlayers()) do buildESP(p) end
 Players.PlayerAdded:Connect(buildESP)
 
 local function hideObj(obj)
-    obj.fill.Visible = false
-    obj.box.Visible  = false
+    obj.line1.Visible = false
+    obj.line2.Visible = false
+    obj.line3.Visible = false
+    obj.line4.Visible = false
     obj.name.Visible = false
     obj.healthBack.Visible = false
     obj.healthBar.Visible = false
@@ -301,19 +290,31 @@ RunService.RenderStepped:Connect(function()
                     local w = maxX - minX
                     local h = maxY - minY
 
+                    -- ESP Box (Feita com 4 linhas para garantir suporte total mobile)
                     if Config.ESPBox then
-                        obj.fill.Position = Vector2.new(minX, minY)
-                        obj.fill.Size     = Vector2.new(w, h)
-                        obj.fill.Visible  = true
+                        obj.line1.From = Vector2.new(minX, minY)
+                        obj.line1.To   = Vector2.new(maxX, minY)
+                        obj.line1.Visible = true
 
-                        obj.box.Position  = Vector2.new(minX, minY)
-                        obj.box.Size      = Vector2.new(w, h)
-                        obj.box.Visible   = true
+                        obj.line2.From = Vector2.new(maxX, minY)
+                        obj.line2.To   = Vector2.new(maxX, maxY)
+                        obj.line2.Visible = true
+
+                        obj.line3.From = Vector2.new(maxX, maxY)
+                        obj.line3.To   = Vector2.new(minX, maxY)
+                        obj.line3.Visible = true
+
+                        obj.line4.From = Vector2.new(minX, maxY)
+                        obj.line4.To   = Vector2.new(minX, minY)
+                        obj.line4.Visible = true
                     else
-                        obj.fill.Visible = false
-                        obj.box.Visible  = false
+                        obj.line1.Visible = false
+                        obj.line2.Visible = false
+                        obj.line3.Visible = false
+                        obj.line4.Visible = false
                     end
 
+                    -- ESP Name
                     if Config.ESPName then
                         obj.name.Text     = player.DisplayName
                         obj.name.Position = Vector2.new(minX + w / 2, minY - CFG.NameSize - 4)
@@ -322,6 +323,7 @@ RunService.RenderStepped:Connect(function()
                         obj.name.Visible  = false
                     end
 
+                    -- ESP Health (Barra Lateral)
                     if Config.ESPHealth and hum.MaxHealth > 0 then
                         local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                         local barHeight = h * healthPercent
@@ -343,7 +345,7 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Interface Gráfica Principal (Com o tamanho do Canvas corrigido para caber tudo perfeitamente)
+-- Interface Gráfica Principal
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NinjaAimbotGUI"
 ScreenGui.Parent = CoreGui
@@ -426,7 +428,7 @@ Container.Parent = MainFrame
 Container.BackgroundTransparency = 1
 Container.Position = UDim2.new(0, 0, 0, 36)
 Container.Size = UDim2.new(1, 0, 1, -36)
-Container.CanvasSize = UDim2.new(0, 0, 0, 300) -- Ajustado para caber sem precisar rolar muito
+Container.CanvasSize = UDim2.new(0, 0, 0, 300)
 Container.ScrollBarThickness = 2
 Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
 
@@ -558,17 +560,4 @@ FovValue.TextColor3 = Color3.fromRGB(170, 170, 170)
 FovValue.TextSize = 10
 FovValue.TextXAlignment = Enum.TextXAlignment.Right
 
-local SliderBack = Instance.new("TextButton")
-SliderBack.Parent = FovBox
-SliderBack.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-SliderBack.BorderColor3 = Color3.fromRGB(50, 50, 50)
-SliderBack.Position = UDim2.new(0, 8, 0, 22)
-SliderBack.Size = UDim2.new(1, -16, 0, 12)
-SliderBack.AutoButtonColor = false
-SliderBack.Text = ""
-
-local SliderBackCorner = Instance.new("UICorner")
-SliderBackCorner.CornerRadius = UDim.new(0, 3)
-SliderBackCorner.Parent = SliderBack
-
-local SliderFill
+loc
