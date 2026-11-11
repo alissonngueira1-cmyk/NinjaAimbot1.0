@@ -1,20 +1,15 @@
--- // Ninja Aimbot (free) - Sinonia RP Edition (ESP Universal Garantida)
+-- // Ninja Aimbot (free) - Sinonia RP Edition (Official Release - ESP Universal & Clean UI)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Limpeza total de instâncias anteriores
+-- Limpeza total de instâncias anteriores para evitar duplicações
 pcall(function()
-    if CoreGui:FindFirstChild("NinjaAimbotGUI") then
-        CoreGui.NinjaAimbotGUI:Destroy()
-    end
-    if CoreGui:FindFirstChild("NinjaESP_Container") then
-        CoreGui.NinjaESP_Container:Destroy()
-    end
+    if CoreGui:FindFirstChild("NinjaAimbotGUI") then CoreGui.NinjaAimbotGUI:Destroy() end
+    if CoreGui:FindFirstChild("NinjaESP_Container") then CoreGui.NinjaESP_Container:Destroy() end
 end)
 
 local Config = {
@@ -50,52 +45,12 @@ local FOVUICorner = Instance.new("UICorner")
 FOVUICorner.CornerRadius = UDim.new(1, 0)
 FOVUICorner.Parent = FOVFrame
 
--- Loading Screen Segura
-local LoadGui = Instance.new("ScreenGui")
-LoadGui.Parent = CoreGui
-
-local LoadFrame = Instance.new("Frame")
-LoadFrame.Parent = LoadGui
-LoadFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-LoadFrame.BorderColor3 = Color3.fromRGB(40, 40, 40)
-LoadFrame.BorderSizePixel = 1
-LoadFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
-LoadFrame.Size = UDim2.new(0, 250, 0, 100)
-
-local LoadCorner = Instance.new("UICorner")
-LoadCorner.CornerRadius = UDim.new(0, 8)
-LoadCorner.Parent = LoadFrame
-
-local LoadTitle = Instance.new("TextLabel")
-LoadTitle.Parent = LoadFrame
-LoadTitle.BackgroundTransparency = 1
-LoadTitle.Position = UDim2.new(0, 0, 0, 12)
-LoadTitle.Size = UDim2.new(1, 0, 0, 20)
-LoadTitle.Font = Enum.Font.GothamBold
-LoadTitle.Text = "Ninja Aimbot (ESP Universal)"
-LoadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-LoadTitle.TextSize = 12
-
-local StatusText = Instance.new("TextLabel")
-StatusText.Parent = LoadFrame
-StatusText.BackgroundTransparency = 1
-StatusText.Position = UDim2.new(0, 0, 0, 32)
-StatusText.Size = UDim2.new(1, 0, 0, 15)
-StatusText.Font = Enum.Font.Gotham
-StatusText.Text = "Mapeando todo o servidor..."
-StatusText.TextColor3 = Color3.fromRGB(150, 150, 150)
-StatusText.TextSize = 10
-
-task.wait(0.4)
-LoadGui:Destroy()
-
--- Sistema de ESP Universal e Robusto
+-- Sistema de ESP Universal (Mapeia e atualiza 100% dos jogadores do servidor)
 local espCache = {}
 
 local function createESPUI(player)
     if player == LocalPlayer then return end
     if espCache[player] then
-        -- Se já existe, limpa o antigo para recriar limpo
         pcall(function()
             espCache[player].BoxHolder:Destroy()
             espCache[player].NameHolder:Destroy()
@@ -146,12 +101,7 @@ local function createESPUI(player)
     nameLbl.ZIndex = 10
     nameLbl.Visible = false
 
-    espCache[player] = { 
-        BoxHolder = boxHolder, 
-        Box = box, 
-        NameHolder = nameHolder, 
-        Name = nameLbl 
-    }
+    espCache[player] = { BoxHolder = boxHolder, Box = box, NameHolder = nameHolder, Name = nameLbl }
 end
 
 local function removeESPUI(player)
@@ -164,12 +114,11 @@ local function removeESPUI(player)
     end
 end
 
--- Inicializa e garante rastreamento de quem entra, sai ou reseta
 Players.PlayerRemoving:Connect(removeESPUI)
 
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(char)
-        task.wait(0.5) -- Aguarda carregar totalmente o personagem
+        task.wait(0.3)
         createESPUI(player)
     end)
     createESPUI(player)
@@ -179,24 +128,18 @@ for _, p in ipairs(Players:GetPlayers()) do
     if p ~= LocalPlayer then
         createESPUI(p)
         p.CharacterAdded:Connect(function(char)
-            task.wait(0.5)
+            task.wait(0.3)
             createESPUI(p)
         end)
     end
 end
 
--- Controle de Toque Seguro
 local isHoldingTouch = false
-UserInputService.TouchStarted:Connect(function(touch, processed)
-    isHoldingTouch = true 
-end)
-UserInputService.TouchEnded:Connect(function(touch, processed)
-    task.delay(0.1, function()
-        isHoldingTouch = false
-    end)
+UserInputService.TouchStarted:Connect(function() isHoldingTouch = true end)
+UserInputService.TouchEnded:Connect(function()
+    task.delay(0.1, function() isHoldingTouch = false end)
 end)
 
--- Função de Alvo com Filtros Completos (Anti-Carro + Anti-Parede)
 local function getClosestTargetInFOV(maxDist)
     local selected = nil
     local shortestDistanceToCenter = math.huge
@@ -211,7 +154,6 @@ local function getClosestTargetInFOV(maxDist)
             local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 
             if head and humanoid and humanoid.Health > 0 and rootPart then
-                -- 1. Filtro Anti-Carro
                 local isDrivingOrSitting = false
                 if humanoid.SeatPart then
                     isDrivingOrSitting = true
@@ -225,7 +167,6 @@ local function getClosestTargetInFOV(maxDist)
                 end
 
                 if not isDrivingOrSitting then
-                    -- 2. Filtro de Linha de Visão (Raycast Anti-Parede)
                     local raycastParams = RaycastParams.new()
                     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
                     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, character}
@@ -235,9 +176,7 @@ local function getClosestTargetInFOV(maxDist)
                     local direction = (head.Position - origin)
                     local raycastResult = workspace:Raycast(origin, direction, raycastParams)
 
-                    local isVisible = (raycastResult == nil)
-
-                    if isVisible then
+                    if raycastResult == nil then
                         local vector, onScreen = Camera:WorldToViewportPoint(head.Position)
                         local distanceToCamera = (head.Position - Camera.CFrame.Position).Magnitude
 
@@ -260,7 +199,6 @@ local function getClosestTargetInFOV(maxDist)
     return selected
 end
 
--- Loop Principal Universal
 RunService.RenderStepped:Connect(function()
     pcall(function()
         FOVFrame.Position = UDim2.new(0, Camera.ViewportSize.X / 2, 0, Camera.ViewportSize.Y / 2)
@@ -273,7 +211,6 @@ RunService.RenderStepped:Connect(function()
             FOVFrame.Visible = false
         end
 
-        -- Aimbot Normal
         if Config.Aimbot and isHoldingTouch then
             local targetHead = getClosestTargetInFOV(220)
             if targetHead then
@@ -282,7 +219,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Aimbot Legit
         if Config.AimbotLegit and isHoldingTouch then
             local targetHead = getClosestTargetInFOV(180)
             if targetHead then
@@ -291,7 +227,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Renderização Universal da ESP para todos os players ativos
         for player, cache in pairs(espCache) do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -318,7 +253,6 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Interface Principal Compacta
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NinjaAimbotGUI"
 ScreenGui.Parent = CoreGui
@@ -566,4 +500,4 @@ CreateSection("ESP FUNCTION", 178)
 CreateToggle("ESPName", "ESP Name", 202)
 CreateToggle("ESPBox", "ESP Box", 232)
 
-print("Ninja Aimbot (ESP Universal Fix
+print("Ninja Aimbot (Final Release) Carregado com Sucesso!")
