@@ -1,4 +1,4 @@
--- // Ninja Aimbot (free) - Sinonia RP Edition (Release Version for GitHub)
+-- // Ninja Aimbot (free) - Sinonia RP Edition (ESP Universal Garantida)
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,7 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Limpeza total de instâncias anteriores para evitar duplicações
+-- Limpeza total de instâncias anteriores
 pcall(function()
     if CoreGui:FindFirstChild("NinjaAimbotGUI") then
         CoreGui.NinjaAimbotGUI:Destroy()
@@ -72,7 +72,7 @@ LoadTitle.BackgroundTransparency = 1
 LoadTitle.Position = UDim2.new(0, 0, 0, 12)
 LoadTitle.Size = UDim2.new(1, 0, 0, 20)
 LoadTitle.Font = Enum.Font.GothamBold
-LoadTitle.Text = "Ninja Aimbot (Official Release)"
+LoadTitle.Text = "Ninja Aimbot (ESP Universal)"
 LoadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 LoadTitle.TextSize = 12
 
@@ -82,19 +82,26 @@ StatusText.BackgroundTransparency = 1
 StatusText.Position = UDim2.new(0, 0, 0, 32)
 StatusText.Size = UDim2.new(1, 0, 0, 15)
 StatusText.Font = Enum.Font.Gotham
-StatusText.Text = "Inicializando sistemas..."
+StatusText.Text = "Mapeando todo o servidor..."
 StatusText.TextColor3 = Color3.fromRGB(150, 150, 150)
 StatusText.TextSize = 10
 
 task.wait(0.4)
 LoadGui:Destroy()
 
--- Sistema de ESP Estável (Nome e Box)
+-- Sistema de ESP Universal e Robusto
 local espCache = {}
 
 local function createESPUI(player)
     if player == LocalPlayer then return end
-    if espCache[player] then return end
+    if espCache[player] then
+        -- Se já existe, limpa o antigo para recriar limpo
+        pcall(function()
+            espCache[player].BoxHolder:Destroy()
+            espCache[player].NameHolder:Destroy()
+        end)
+        espCache[player] = nil
+    end
 
     local boxHolder = Instance.new("BillboardGui")
     boxHolder.Name = player.Name .. "_BoxESP"
@@ -157,9 +164,26 @@ local function removeESPUI(player)
     end
 end
 
+-- Inicializa e garante rastreamento de quem entra, sai ou reseta
 Players.PlayerRemoving:Connect(removeESPUI)
-for _, p in ipairs(Players:GetPlayers()) do createESPUI(p) end
-Players.PlayerAdded:Connect(createESPUI)
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.5) -- Aguarda carregar totalmente o personagem
+        createESPUI(player)
+    end)
+    createESPUI(player)
+end)
+
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then
+        createESPUI(p)
+        p.CharacterAdded:Connect(function(char)
+            task.wait(0.5)
+            createESPUI(p)
+        end)
+    end
+end
 
 -- Controle de Toque Seguro
 local isHoldingTouch = false
@@ -172,7 +196,7 @@ UserInputService.TouchEnded:Connect(function(touch, processed)
     end)
 end)
 
--- Função de Alvo com Filtros Completos: Anti-Carro + Anti-Parede (Visão Real por Raycast)
+-- Função de Alvo com Filtros Completos (Anti-Carro + Anti-Parede)
 local function getClosestTargetInFOV(maxDist)
     local selected = nil
     local shortestDistanceToCenter = math.huge
@@ -236,7 +260,7 @@ local function getClosestTargetInFOV(maxDist)
     return selected
 end
 
--- Loop Principal Protegido
+-- Loop Principal Universal
 RunService.RenderStepped:Connect(function()
     pcall(function()
         FOVFrame.Position = UDim2.new(0, Camera.ViewportSize.X / 2, 0, Camera.ViewportSize.Y / 2)
@@ -249,7 +273,7 @@ RunService.RenderStepped:Connect(function()
             FOVFrame.Visible = false
         end
 
-        -- Aimbot Normal (Firme na cabeça, somente visível)
+        -- Aimbot Normal
         if Config.Aimbot and isHoldingTouch then
             local targetHead = getClosestTargetInFOV(220)
             if targetHead then
@@ -258,7 +282,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Aimbot Legit (Leve mexidinha, somente visível)
+        -- Aimbot Legit
         if Config.AimbotLegit and isHoldingTouch then
             local targetHead = getClosestTargetInFOV(180)
             if targetHead then
@@ -267,29 +291,34 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
+        -- Renderização Universal da ESP para todos os players ativos
         for player, cache in pairs(espCache) do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local head = char and char:FindFirstChild("Head")
             local hum  = char and char:FindFirstChildOfClass("Humanoid")
 
-            if not root or not head or not hum or hum.Health <= 0 then
-                cache.BoxHolder.Enabled = false
-                cache.NameHolder.Enabled = false
+            if not cache.BoxHolder or not cache.NameHolder then
+                createESPUI(player)
             else
-                cache.BoxHolder.Enabled = true
-                cache.BoxHolder.Adornee = root
-                cache.Box.Visible = Config.ESPBox
+                if not root or not head or not hum or hum.Health <= 0 then
+                    cache.BoxHolder.Enabled = false
+                    cache.NameHolder.Enabled = false
+                else
+                    cache.BoxHolder.Enabled = true
+                    cache.BoxHolder.Adornee = root
+                    cache.Box.Visible = Config.ESPBox
 
-                cache.NameHolder.Enabled = true
-                cache.NameHolder.Adornee = head
-                cache.Name.Visible = Config.ESPName
+                    cache.NameHolder.Enabled = true
+                    cache.NameHolder.Adornee = head
+                    cache.Name.Visible = Config.ESPName
+                end
             end
         end
     end)
 end)
 
--- Interface Principal Otimizada
+-- Interface Principal Compacta
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NinjaAimbotGUI"
 ScreenGui.Parent = CoreGui
@@ -537,4 +566,4 @@ CreateSection("ESP FUNCTION", 178)
 CreateToggle("ESPName", "ESP Name", 202)
 CreateToggle("ESPBox", "ESP Box", 232)
 
-print("Ninja Aimbot (GitHub Official Release) Carregado com Sucesso!")
+print("Ninja Aimbot (ESP Universal Fix
